@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 
 import 'app/app_router.dart';
+import 'app/firebase_bootstrap.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await FirebaseBootstrap.initialize();
   runApp(const Application());
 }
 

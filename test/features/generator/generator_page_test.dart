@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forui/forui.dart';
-import 'package:zaoapp/features/generator/config_generation_service.dart';
 import 'package:zaoapp/features/generator/generator_page.dart';
-import 'package:zaoapp/features/generator/mock_config_generation_service.dart';
+import 'package:zaoapp/features/generator/genui_generation_service.dart';
+import 'package:zaoapp/features/generator/mock_genui_generation_service.dart';
+import 'package:zaoapp/features/genui_runtime/genui_mini_app_package.dart';
+import 'package:zaoapp/features/library/genui_mini_app_repository.dart';
+
+import '../genui_runtime/genui_test_fixtures.dart';
 
 void main() {
   testWidgets('shows the initial empty state', (tester) async {
     await tester.pumpWidget(
       _TestApp(
-        child: GeneratorPage(service: const MockConfigGenerationService()),
+        child: GeneratorPage(
+          service: const MockGenUiGenerationService(),
+          repository: _MemoryRepository(),
+        ),
       ),
     );
 
@@ -24,7 +31,10 @@ void main() {
   ) async {
     await tester.pumpWidget(
       _TestApp(
-        child: GeneratorPage(service: const MockConfigGenerationService()),
+        child: GeneratorPage(
+          service: const MockGenUiGenerationService(),
+          repository: _MemoryRepository(),
+        ),
       ),
     );
 
@@ -36,25 +46,33 @@ void main() {
     expect(tester.testTextInput.isVisible, isTrue);
   });
 
-  testWidgets('generates and previews a mini app config', (tester) async {
+  testWidgets('generates and previews a GenUI mini app package', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _TestApp(
-        child: GeneratorPage(service: const MockConfigGenerationService()),
+        child: GeneratorPage(
+          service: const MockGenUiGenerationService(),
+          repository: _MemoryRepository(),
+        ),
       ),
     );
 
-    await tester.enterText(find.byType(EditableText), '帮我做一个待办清单');
+    await tester.enterText(find.byType(EditableText), '帮我做一个每日待办清单');
     await tester.tap(find.text('生成预览'));
     await tester.pumpAndSettle();
 
     expect(find.text('待办清单'), findsOneWidget);
-    expect(find.byKey(const ValueKey('todo_list_renderer')), findsOneWidget);
+    expect(find.text('保存小应用'), findsOneWidget);
   });
 
   testWidgets('shows validation error for empty input', (tester) async {
     await tester.pumpWidget(
       _TestApp(
-        child: GeneratorPage(service: const MockConfigGenerationService()),
+        child: GeneratorPage(
+          service: const MockGenUiGenerationService(),
+          repository: _MemoryRepository(),
+        ),
       ),
     );
 
@@ -68,7 +86,11 @@ void main() {
     tester,
   ) async {
     final service = _RecoveringGenerationService();
-    await tester.pumpWidget(_TestApp(child: GeneratorPage(service: service)));
+    await tester.pumpWidget(
+      _TestApp(
+        child: GeneratorPage(service: service, repository: _MemoryRepository()),
+      ),
+    );
 
     await tester.enterText(find.byType(EditableText), '做一个待办工具');
     await tester.tap(find.text('生成预览'));
@@ -81,7 +103,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(service.calls, 2);
-    expect(find.text('待办清单'), findsOneWidget);
+    expect(find.text('测试小应用'), findsOneWidget);
   });
 }
 
@@ -102,21 +124,37 @@ class _TestApp extends StatelessWidget {
   }
 }
 
-class _RecoveringGenerationService implements ConfigGenerationService {
+class _RecoveringGenerationService implements GenUiGenerationService {
   int calls = 0;
 
   @override
-  Future<Map<String, Object?>> generate(String description) async {
+  Future<GenUiMiniAppPackage> generate(String prompt) async {
     calls += 1;
     if (calls == 1) {
-      throw const ConfigGenerationException('first call fails');
+      throw const GenUiGenerationException('first call fails');
     }
-    return {
-      'id': 'todo_mock',
-      'schemaVersion': 1,
-      'appVersion': 1,
-      'name': '待办清单',
-      'type': 'todo_list',
-    };
+    return validPackage(name: '恢复的小应用', prompt: prompt);
+  }
+}
+
+class _MemoryRepository implements GenUiMiniAppRepository {
+  final _packages = <GenUiMiniAppPackage>[];
+
+  @override
+  Future<GenUiMiniAppPackage?> findById(String id) async {
+    for (final package in _packages) {
+      if (package.id == id) {
+        return package;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Future<List<GenUiMiniAppPackage>> list() async => List.of(_packages);
+
+  @override
+  Future<void> save(GenUiMiniAppPackage package) async {
+    _packages.add(package);
   }
 }
